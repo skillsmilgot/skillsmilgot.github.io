@@ -54,6 +54,9 @@
   .st-במילוי { background:#ede9fe; color:#4c1d95; } .st-פג { background:#fee2e2; color:#7f1d1d; }
   .ext { background:#ffedd5; color:#7c2d12; margin-inline-start:.3rem; }
   .muted { color:var(--muted); } .small { font-size:.85rem; }
+  .ext-card { border:2px solid #c9a24a; background:#fffaf0; }
+  .save-st { font-size:.85rem; color:var(--muted); min-height:1.2em; display:inline-block; margin-top:.4rem; }
+  .save-st.ok { color:#144d29; } .save-st.bad { color:#7a1a12; } .card h2 .save-st { margin:0 .6rem 0 0; font-weight:400; }
   .err { color:var(--error); font-size:.85rem; font-weight:600; min-height:1em; }
   .msg { padding:.6rem .8rem; border-radius:8px; margin:.6rem 0; }
   .msg.ok { background:#edf7f0; color:#144d29; } .msg.bad { background:#fef3f2; color:#7a1a12; } .msg.warn { background:#fff4d6; color:#5c3d00; }
@@ -225,6 +228,39 @@
     yes.focus();
   }
   var toastTimer;
+  // ───── שמירה אוטומטית ─────
+  // כל שינוי נשמר לבד אחרי הפסקה קצרה בהקלדה; אין צורך בכפתור שמירה.
+  var savers = [];
+  function autosaver(statusEl, saveFn) {
+    var timer = null, busy = false, again = false, dirty = false;
+    function set(text, kind) { statusEl.textContent = text; statusEl.className = 'save-st' + (kind ? ' ' + kind : ''); }
+    function doSave() {
+      timer = null;
+      if (busy) { again = true; return Promise.resolve(); }
+      busy = true; dirty = false; set('שומר…');
+      var p;
+      try { p = Promise.resolve(saveFn()); } catch (e) { p = Promise.reject(e); }
+      return p.then(function (r) {
+        if (r && r.skip) set(r.skip, 'bad');
+        else if (r && r.ok === false) set('לא נשמר: ' + r.error, 'bad');
+        else set('נשמר ✓ ' + new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }), 'ok');
+      }, function (e) { dirty = true; set('לא נשמר: ' + (e && e.message ? e.message : e), 'bad'); })
+        .then(function () { busy = false; if (again) { again = false; return doSave(); } });
+    }
+    function trigger(delay) {
+      dirty = true; clearTimeout(timer); set('יש שינויים — נשמר אוטומטית…');
+      timer = setTimeout(doSave, delay === undefined ? 1200 : delay);
+    }
+    trigger.flush = function () { if (timer) { clearTimeout(timer); return doSave(); } return Promise.resolve(); };
+    trigger.pending = function () { return !!timer || busy || dirty; };
+    savers.push(trigger);
+    return trigger;
+  }
+  function flushSaves() { var list = savers; savers = []; return Promise.all(list.map(function (f) { return f.flush(); })); }
+  window.addEventListener('beforeunload', function (e) {
+    if (savers.some(function (f) { return f.pending(); })) { flushSaves(); e.preventDefault(); e.returnValue = ''; }
+  });
+
   function toast(t) { var el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.hidden = true; }, 6000); }
 
   // ───── רשימה ─────
@@ -322,6 +358,7 @@
 
   // ───── פרטי בקשה ─────
   function openDetail(requestNo) {
+    flushSaves();
     show('detail');
     $('detail').replaceChildren(h('p', { class: 'muted' }, 'טוען…'));
     return run('adminGet', requestNo).then(function (res) {
@@ -336,11 +373,30 @@
 
   function renderDetail(res) {
     var a = res.app, root = $('detail'); root.replaceChildren();
+    var topBadge = badge(a.status);
     var top = h('div', { class: 'card' },
-      h('div', { class: 'row' }, h('h2', { style: 'margin:0' }, a.fullName + ' · ', h('bdi', null, a.requestNo)), badge(a.status),
+      h('div', { class: 'row' }, h('h2', { style: 'margin:0' }, a.fullName + ' · ', h('bdi', null, a.requestNo)), topBadge,
         a.extensionRequested ? h('span', { class: 'badge ext' }, 'ביקש/ה הארכה') : null),
       h('p', { class: 'small muted' }, 'נוצרה: ' + fmt(a.createdAt) + ' · התחלת מילוי: ' + fmt(a.startedAt) + ' · תוקף עד: ' + fmt(a.deadlineAt) + ' · הוגשה: ' + fmt(a.submittedAt) + ' · זמן שנותר: ' + remaining(a)));
     root.appendChild(top);
+
+    // בקשת הארכת זמן מהלקוח — אישור בלחיצה, והלקוח מקבל מייל שהבקשה אושרה
+    if (a.extensionRequested && !a.submittedAt) {
+      var extMsg = h('div');
+      var extHours = h('select', { 'aria-label': 'משך ההארכה' }, [24, 48, 72, 168].map(function (x) { return h('option', { value: x }, '+' + x + ' שעות'); }));
+      root.appendChild(h('div', { class: 'card ext-card' },
+        h('h2', null, 'הלקוח ביקש הארכת זמן'),
+        h('p', { class: 'small' }, 'באישור ההארכה הלקוח יקבל מייל שהבקשה אושרה, עם המועד החדש למילוי.'),
+        h('div', { class: 'row' }, extHours,
+          h('button', { type: 'button', disabled: a.revoked, onclick: function () {
+            run('adminExtend', a.requestNo, Number(extHours.value)).then(function (r) {
+              if (!r.ok) { showMsg(extMsg, r.error); return; }
+              toast(r.emailSent ? 'ההארכה אושרה ונשלח מייל אישור אל ' + a.email : (r.emailError || 'ההארכה אושרה'));
+              reload();
+            }).catch(fail);
+          } }, 'אישור ההארכה ושליחת מייל ללקוח')),
+        extMsg));
+    }
 
     // קישור
     var linkMsg = h('div');
@@ -351,7 +407,7 @@
     else {
       linkCard.appendChild(h('div', { class: 'row' }, linkInput, h('button', { type: 'button', onclick: function () { copy(a.link, linkInput); } }, 'העתקת קישור')));
       linkCard.appendChild(h('div', { class: 'row', style: 'margin-top:.6rem' },
-        hours, h('button', { type: 'button', class: 'secondary', disabled: a.revoked, onclick: function () { act(linkMsg, run('adminExtend', a.requestNo, Number(hours.value)), 'הזמן הוארך'); } }, 'הארכת זמן'),
+        hours, h('button', { type: 'button', class: 'secondary', disabled: a.revoked, onclick: function () { run('adminExtend', a.requestNo, Number(hours.value)).then(function (r) { if (!r.ok) { showMsg(linkMsg, r.error); return; } toast(r.emailSent ? 'הזמן הוארך ונשלח מייל אישור ללקוח' : (r.emailError || 'הזמן הוארך')); reload(); }).catch(fail); } }, 'הארכת זמן'),
         h('button', { type: 'button', class: 'secondary', disabled: a.revoked, onclick: function () { act(linkMsg, run('adminResendLink', a.requestNo), 'הקישור נשלח שוב במייל אל ' + a.email); } }, 'שליחה חוזרת במייל'),
         h('button', { type: 'button', class: 'secondary', onclick: function () { ask(linkMsg, 'לחדש קישור? הקישור הקודם יבוטל, התשובות שנשמרו יישארו, והקישור החדש יישלח ללקוח במייל.', function () { act(linkMsg, run('adminRenew', a.requestNo, true), 'נוצר קישור חדש ונשלח במייל אל ' + a.email); }); } }, 'חידוש קישור'),
         h('button', { type: 'button', class: 'danger', disabled: a.revoked, onclick: function () { ask(linkMsg, 'לבטל את הקישור? הלקוח לא יוכל להמשיך למלא.', function () { act(linkMsg, run('adminRevoke', a.requestNo), 'הקישור בוטל'); }); } }, a.revoked ? 'הקישור בוטל' : 'ביטול קישור')));
@@ -370,60 +426,93 @@
     if (a.confirmations) ans.appendChild(h('p', { class: 'small muted' }, 'אישורים: ' + a.confirmations));
     colA.appendChild(ans);
 
-    // פרטים אישיים
-    var detMsg = h('div');
+    // פרטים אישיים — שמירה אוטומטית
+    var detSt = h('span', { class: 'save-st' });
     var detForm = h('form', { novalidate: true });
     var readDet = detailsForm(detForm, 'd-', a, { masked: a.idMasked, requestNo: a.requestNo });
-    detForm.appendChild(h('div', { class: 'row', style: 'margin-top:.8rem' }, h('button', { type: 'submit' }, 'שמירת תיקון פרטים')));
-    detForm.onsubmit = function (e) {
-      e.preventDefault(); fieldErrors('d-', {});
-      run('adminUpdateDetails', a.requestNo, readDet()).then(function (r) {
-        if (!r.ok) { if (r.extra && r.extra.errors) fieldErrors('d-', r.extra.errors); showMsg(detMsg, r.error); return; }
-        toast(r.changed ? 'הפרטים עודכנו. התשובות לא נמחקו.' : 'לא בוצע שינוי'); reload();
-      }).catch(fail);
-    };
-    colA.appendChild(h('div', { class: 'card' }, h('h2', null, 'פרטים אישיים'), h('p', { class: 'small muted' }, 'תיקון פרטים אינו מוחק תשובות שהלקוח מילא.'), detForm, detMsg));
+    var saveDet = autosaver(detSt, function () {
+      return run('adminUpdateDetails', a.requestNo, readDet()).then(function (r) {
+        fieldErrors('d-', r.ok ? {} : (r.extra && r.extra.errors) || {});
+        if (!r.ok && r.extra && r.extra.errors) return { skip: 'לא נשמר — יש לתקן את השדה המסומן' };
+        return r;
+      });
+    });
+    detForm.addEventListener('input', function (e) { saveDet(e.target.tagName === 'SELECT' || e.target.type === 'date' ? 300 : 1200); });
+    detForm.addEventListener('change', function () { saveDet(300); });
+    detForm.onsubmit = function (e) { e.preventDefault(); saveDet(0); };
+    colA.appendChild(h('div', { class: 'card' }, h('h2', null, 'פרטים אישיים', detSt), h('p', { class: 'small muted' }, 'כל שינוי נשמר אוטומטית. תיקון פרטים אינו מוחק תשובות שהלקוח מילא.'), detForm));
 
-    // מחיר והטבה
-    var finMsg = h('div');
+    // מחיר והטבה — שמירה אוטומטית
+    var finSt = h('span', { class: 'save-st' });
     var price = h('input', { id: 'f-price', inputmode: 'decimal', value: a.coursePrice === null ? '' : a.coursePrice });
     var benefit = h('input', { id: 'f-benefit', inputmode: 'decimal', value: a.benefit === null ? '' : a.benefit });
     var after = h('strong', null, a.priceAfter === null ? '—' : '₪' + Number(a.priceAfter).toLocaleString('he-IL'));
     function calc() { var p = parseFloat(price.value), b = parseFloat(benefit.value); after.textContent = isFinite(p) && isFinite(b) ? '₪' + (p - b).toLocaleString('he-IL') : '—'; }
-    price.addEventListener('input', calc); benefit.addEventListener('input', calc);
-    colB.appendChild(h('div', { class: 'card' }, h('h2', null, 'מחיר והטבה — לשימוש פנימי'),
+    var saveFin = autosaver(finSt, function () { return run('adminSaveFinance', a.requestNo, price.value, benefit.value); });
+    [price, benefit].forEach(function (x) { x.addEventListener('input', function () { calc(); saveFin(); }); x.addEventListener('change', function () { saveFin(200); }); });
+    colB.appendChild(h('div', { class: 'card' }, h('h2', null, 'מחיר והטבה — לשימוש פנימי', finSt),
       h('div', { class: 'grid' }, h('div', null, h('label', { for: 'f-price' }, 'מחיר המסלול (₪)'), price), h('div', null, h('label', { for: 'f-benefit' }, 'סכום ההטבה (₪)'), benefit)),
-      h('p', null, 'מחיר לאחר הטבה: ', after),
-      h('button', { type: 'button', onclick: function () { act(finMsg, run('adminSaveFinance', a.requestNo, price.value, benefit.value), 'המחיר נשמר'); } }, 'שמירה'), finMsg));
+      h('p', null, 'מחיר לאחר הטבה: ', after)));
 
-    // החלטה
-    var decMsg = h('div');
-    var st = h('select', { id: 'd-status' }, boot.adminStatuses.map(function (s) { return h('option', { value: s }, s); }));
+    // החלטה — שמירה אוטומטית
+    var decSt = h('span', { class: 'save-st' });
+    var st = h('select', { id: 'd-status', disabled: !a.submittedAt }, boot.adminStatuses.map(function (s) { return h('option', { value: s }, s); }));
     st.value = boot.adminStatuses.indexOf(a.status) >= 0 ? a.status : boot.adminStatuses[0];
-    var decAt = h('input', { id: 'd-at', type: 'date', value: a.decisionAt || '' });
-    var decText = h('textarea', { id: 'd-text' }); decText.value = a.decision || '';
-    var decCard = h('div', { class: 'card' }, h('h2', null, 'תיעוד החלטה'),
+    var decAt = h('input', { id: 'd-at', type: 'date', value: a.decisionAt || '', disabled: !a.submittedAt });
+    var decText = h('textarea', { id: 'd-text', disabled: !a.submittedAt }); decText.value = a.decision || '';
+    var saveDec = autosaver(decSt, function () {
+      return run('adminSaveDecision', a.requestNo, st.value, decText.value, decAt.value).then(function (r) {
+        if (r.ok) { a.status = st.value; var nb = badge(st.value); topBadge.replaceWith(nb); topBadge = nb; }
+        return r;
+      });
+    });
+    st.addEventListener('change', function () { saveDec(0); });
+    decAt.addEventListener('change', function () { saveDec(300); });
+    decText.addEventListener('input', function () { saveDec(); });
+    var decCard = h('div', { class: 'card' }, h('h2', null, 'תיעוד החלטה', decSt),
       a.submittedAt ? null : h('p', { class: 'msg warn' }, 'ניתן לתעד החלטה רק לאחר שהלקוח הגיש את הבקשה.'),
       h('div', { class: 'grid' }, h('div', null, h('label', { for: 'd-status' }, 'סטטוס'), st), h('div', null, h('label', { for: 'd-at' }, 'מועד ההחלטה'), decAt)),
-      h('label', { for: 'd-text', style: 'margin-top:.6rem' }, 'החלטה והסבר (התשובה נמסרת ללקוח בטלפון)'), decText,
-      h('button', { type: 'button', disabled: !a.submittedAt, style: 'margin-top:.6rem', onclick: function () { act(decMsg, run('adminSaveDecision', a.requestNo, st.value, decText.value, decAt.value), 'ההחלטה נשמרה'); } }, 'שמירת החלטה'), decMsg);
+      h('label', { for: 'd-text', style: 'margin-top:.6rem' }, 'החלטה והסבר (התשובה נמסרת ללקוח בטלפון)'), decText);
     colB.appendChild(decCard);
 
-    // מימוש
-    var realMsg = h('div');
+    // מימוש — שמירה אוטומטית
+    var realSt = h('span', { class: 'save-st' });
     var realChk = h('input', { type: 'checkbox', id: 'r-chk' }); realChk.checked = a.realized;
     var realAt = h('input', { type: 'date', id: 'r-at', value: a.realizedAt || '' });
-    colB.appendChild(h('div', { class: 'card' }, h('h2', null, 'מימוש ההטבה'),
+    var saveReal = autosaver(realSt, function () {
+      if (realChk.checked && !realAt.value) return { skip: 'יש להזין את תאריך התשלום המלא — אז זה יישמר' };
+      return run('adminSaveRealized', a.requestNo, realChk.checked, realAt.value);
+    });
+    realChk.addEventListener('change', function () { saveReal(0); });
+    realAt.addEventListener('change', function () { saveReal(200); });
+    colB.appendChild(h('div', { class: 'card' }, h('h2', null, 'מימוש ההטבה', realSt),
       h('label', { for: 'r-chk', style: 'display:flex;gap:.5rem;align-items:center;color:var(--text);font-size:1rem' }, realChk, 'מומש — שולם במלואו המחיר המוסכם לאחר ההטבה'),
       h('div', { style: 'margin:.5rem 0' }, h('label', { for: 'r-at' }, 'תאריך התשלום המלא'), realAt),
-      h('p', { class: 'small muted' }, 'אין לאסוף או לשמור פרטי כרטיס אשראי במערכת.'),
-      h('button', { type: 'button', onclick: function () { act(realMsg, run('adminSaveRealized', a.requestNo, realChk.checked, realAt.value), 'נשמר'); } }, 'שמירה'), realMsg));
+      h('p', { class: 'small muted' }, 'אין לאסוף או לשמור פרטי כרטיס אשראי במערכת.')));
 
-    // הערות
-    var noteMsg = h('div'); var noteText = h('textarea', { id: 'n-text', 'aria-label': 'הערה פנימית חדשה' });
-    var notes = h('div', { class: 'card' }, h('h2', null, 'הערות פנימיות'), noteText,
-      h('button', { type: 'button', style: 'margin-top:.5rem', onclick: function () { act(noteMsg, run('adminAddNote', a.requestNo, noteText.value), 'ההערה נוספה'); } }, 'הוספת הערה'), noteMsg);
-    res.notes.forEach(function (n) { notes.appendChild(h('div', { class: 'answer' }, h('div', { class: 'small muted' }, fmt(n.at) + ' · ' + n.by), h('div', { class: 'a' }, n.text))); });
+    // הערות — כל הערה נשמרת אוטומטית תוך כדי כתיבה
+    var noteSt = h('span', { class: 'save-st' });
+    var noteText = h('textarea', { id: 'n-text', 'aria-label': 'הערה פנימית', placeholder: 'כתיבת הערה — נשמרת אוטומטית' });
+    var notesList = h('div'), noteAt = null, liveNote = null;
+    var saveNote = autosaver(noteSt, function () {
+      var text = noteText.value;
+      return run('adminSaveNote', a.requestNo, noteAt, text).then(function (r) {
+        if (!r.ok) return r;
+        noteAt = r.noteAt;
+        if (!noteAt) { if (liveNote) { liveNote.remove(); liveNote = null; } return r; }
+        var body = h('div', { class: 'a' }, text.trim());
+        var el = h('div', { class: 'answer' }, h('div', { class: 'small muted' }, fmt(noteAt) + ' · ' + (boot.user || 'אני')), body);
+        if (liveNote) liveNote.replaceWith(el); else notesList.prepend(el);
+        liveNote = el;
+        return r;
+      });
+    });
+    noteText.addEventListener('input', function () { saveNote(); });
+    var newNoteBtn = h('button', { type: 'button', class: 'secondary', style: 'margin-top:.5rem', onclick: function () {
+      saveNote.flush().then(function () { noteAt = null; liveNote = null; noteText.value = ''; noteSt.textContent = ''; noteText.focus(); });
+    } }, 'הערה נוספת');
+    var notes = h('div', { class: 'card' }, h('h2', null, 'הערות פנימיות', noteSt), noteText, newNoteBtn, notesList);
+    res.notes.forEach(function (n) { notesList.appendChild(h('div', { class: 'answer' }, h('div', { class: 'small muted' }, fmt(n.at) + ' · ' + n.by), h('div', { class: 'a' }, n.text))); });
     colB.appendChild(notes);
 
     // היסטוריה
@@ -490,7 +579,7 @@
     sel.addEventListener('change', loadList);
     $('btn-refresh').addEventListener('click', loadList);
     $('btn-new').addEventListener('click', openNew);
-    document.querySelectorAll('[data-back]').forEach(function (b2) { b2.addEventListener('click', function () { show('list'); loadList(); }); });
+    document.querySelectorAll('[data-back]').forEach(function (b2) { b2.addEventListener('click', function () { flushSaves().then(loadList); show('list'); }); });
     $('new-count').addEventListener('click', function () { newCount = 0; $('new-count').hidden = true; });
     started = true;
     loadList(); poll(); setInterval(poll, 20000);
