@@ -178,11 +178,11 @@
   // ───── שעון ─────
   function stopTimer() { if (timerHandle) clearInterval(timerHandle); timerHandle = null; timerSlot.replaceChildren(); }
   function fmtRemaining(ms) {
-    if (ms <= 0) return 'הזמן הסתיים';
-    const totalMin = Math.ceil(ms / 60000);
-    const hrs = Math.floor(totalMin / 60), min = totalMin % 60;
-    if (hrs === 0) return min + ' דקות';
-    return hrs + ':' + String(min).padStart(2, '0') + ' שעות';
+    if (!(ms > 0)) return 'הזמן הסתיים';
+    const total = Math.floor(ms / 1000);
+    const hrs = Math.floor(total / 3600), min = Math.floor((total % 3600) / 60), sec = total % 60;
+    const p2 = (n) => String(n).padStart(2, '0');
+    return p2(hrs) + ':' + p2(min) + ':' + p2(sec);
   }
   function startTimer(onExpire) {
     stopTimer();
@@ -201,7 +201,7 @@
     });
     const saveState = h('span', { class: 'save-state', id: 'save-state' }, 'התשובות נשמרות אוטומטית');
     timerSlot.replaceChildren(h('div', { class: 'timer-bar' }, h('div', { class: 'inner' },
-      h('span', null, 'זמן שנותר: ', value), extBtn, saveState, announcer)));
+      h('span', null, 'זמן שנותר: ', h('bdi', { dir: 'ltr' }, value)), extBtn, saveState, announcer)));
     const announced = {};
     const tick = () => {
       const left = me.deadlineAt - (Date.now() + clockOffset);
@@ -210,7 +210,7 @@
       if (left <= 0) { stopTimer(); onExpire(); }
     };
     tick();
-    timerHandle = setInterval(tick, 15000);
+    timerHandle = setInterval(tick, 1000);
   }
 
   // ───── הטופס ─────
@@ -270,7 +270,7 @@
     const num = h('span', { class: 'q-num' }, q.num + '.');
     let node;
     if (q.type === 'text') {
-      const ta = h('textarea', { id: q.id, name: q.id, maxlength: '3000', 'aria-required': 'true', 'aria-describedby': (q.hint ? 'hint-' + q.id + ' ' : '') + 'err-' + q.id });
+      const ta = h('textarea', { id: q.id, name: q.id, maxlength: String(q.max || 3000), rows: '3', 'aria-required': 'true', 'aria-describedby': (q.hint ? 'hint-' + q.id + ' ' : '') + 'err-' + q.id });
       ta.value = answers[q.id] || '';
       node = h('div', { class: 'q', id: 'wrap-' + q.id },
         h('label', { class: 'q-label', for: q.id }, num, q.label, req),
@@ -281,6 +281,11 @@
       const choices = q.options.map(([value, label]) => {
         const input = h('input', { type: multi ? 'checkbox' : 'radio', name: q.id, value });
         input.checked = multi ? (cur || []).includes(value) : cur === value;
+        if (multi && q.maxSelect) input.addEventListener('change', () => {
+          const boxes = Array.from(document.querySelectorAll('input[name="' + q.id + '"]'));
+          const n = boxes.filter((b) => b.checked).length;
+          boxes.forEach((b) => { if (!b.checked) b.disabled = n >= q.maxSelect; });
+        });
         return h('label', { class: 'choice' }, input, h('span', null, label));
       });
       node = h('fieldset', { class: 'q', id: 'wrap-' + q.id, 'aria-describedby': 'err-' + q.id, 'aria-required': 'true', role: multi ? 'group' : 'radiogroup' },

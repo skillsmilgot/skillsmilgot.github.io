@@ -31,9 +31,9 @@ main:focus, main:focus-visible { outline: none; } /* מיקוד תכנותי ב�
 
 .demo-banner { background: #fff4d6; color: #5c3d00; text-align: center; padding: .45rem 1rem; font-weight: 600; border-bottom: 1px solid #f0d38a; font-size: .9rem; }
 
-.site-header { background: var(--card); border-bottom: 1px solid var(--border); }
+.site-header { background: var(--card); border-bottom: 3px solid #c9a24a; }
 .site-header .inner { max-width: 880px; margin: 0 auto; padding: .9rem 1.25rem; display: flex; align-items: center; gap: 1rem; }
-.site-header img { height: 48px; width: auto; }
+.site-header img { height: 64px; width: auto; }
 .wordmark { font-size: 1.25rem; font-weight: 700; color: var(--primary-dark); letter-spacing: .02em; padding: .35rem 0; }
 
 main { max-width: 880px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }

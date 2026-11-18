@@ -9,8 +9,8 @@ window.SKILLS_CONFIG = {
   // true = פס "גרסת הדגמה" בראש הטופס. להפעלה אמיתית: false
   demo: false,
 
-  // לוגו: כרגע שם המכללה כטקסט. ללוגו רשמי — שמרו קובץ בתיקייה assets והגדירו src.
-  logo: { src: '', alt: 'מכללת סקילס', text: 'מכללת סקילס' },
+  // לוגו רשמי של מכללת סקילס (מתוך myskills.co.il)
+  logo: { src: 'assets/logo.png', alt: 'מכללת סקילס', text: 'מכללת סקילס' },
 
   // צבעי מותג — מציין מקום! יש להחליף בקודי הצבע הרשמיים מאתר המכללה.
   colors: { primary: '#1f3a5f', primaryDark: '#152a45', accent: '#e8eef6' },
