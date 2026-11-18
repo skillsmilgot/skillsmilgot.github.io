@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מסך ניהול — בקשות מלגה, מכללת סקילס</title>
+<script>
+(function(){
+  var API = "https://script.google.com/macros/s/AKfycbyvAN-db5DoxBM0OWtsfdL4gFd6kiTqnrTdWiskKaFr0FLaXygP_qdFe0VqyyxU0Cv5uA/exec";
+  function call(fn, args, ok, fail) {
+    fetch(API, { method: 'POST', body: JSON.stringify({ action: 'adminRpc', fn: fn, args: args }), redirect: 'follow', cache: 'no-store', credentials: 'omit' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (j.error) fail(new Error(j.error)); else ok(j.result); })
+      .catch(function () { fail(new Error('תקלת תקשורת. בדקו את החיבור ונסו שוב.')); });
+  }
+  window.google = { script: { get run() {
+    var h = { ok: function(){}, fail: function(){} };
+    var p = { withSuccessHandler: function (f) { h.ok = f; return p; }, withFailureHandler: function (f) { h.fail = f; return p; } };
+    ['adminLogin', 'adminLogout', 'adminApi'].forEach(function (fn) { p[fn] = function () { call(fn, Array.prototype.slice.call(arguments), h.ok, h.fail); }; });
+    return p;
+  } } };
+})();
+</script>
+<meta charset="utf-8">
+<style>
+  :root { --primary:#1f3a5f; --primary-dark:#152a45; --accent:#e8eef6; --bg:#f6f7f9; --text:#1b2330; --muted:#4a5568; --border:#d4d9e1; --error:#b42318; --ok:#1e6b3a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Segoe UI",Arial,sans-serif; font-size:15px; color:var(--text); background:var(--bg); line-height:1.5; }
+  :focus-visible { outline:3px solid #f59e0b; outline-offset:2px; }
+  header { background:#fff; border-bottom:1px solid var(--border); padding:.7rem 1rem; display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; position:sticky; top:0; z-index:5; }
+  header h1 { font-size:1.15rem; margin:0; margin-inline-end:auto; color:var(--primary-dark); }
+  .demo { background:#fff4d6; color:#5c3d00; padding:.3rem .7rem; border-radius:6px; font-weight:600; font-size:.85rem; }
+  main { padding:1rem; }
+  .card { background:#fff; border:1px solid var(--border); border-radius:10px; padding:1rem 1.2rem; margin-bottom:1rem; }
+  h2 { font-size:1.05rem; margin:0 0 .8rem; color:var(--primary-dark); }
+  button, .btn { font:inherit; border-radius:8px; border:1px solid var(--primary); background:var(--primary); color:#fff; padding:.45rem .95rem; cursor:pointer; min-height:38px; }
+  button.secondary { background:#fff; color:var(--primary); }
+  button.danger { background:#fff; color:var(--error); border-color:var(--error); }
+  button:disabled { opacity:.55; cursor:not-allowed; }
+  input, select, textarea { font:inherit; padding:.42rem .6rem; border:1px solid #9aa3b2; border-radius:8px; background:#fff; color:var(--text); }
+  textarea { width:100%; min-height:80px; }
+  label { font-size:.86rem; color:var(--muted); display:block; margin-bottom:.15rem; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:.7rem 1rem; }
+  .grid input, .grid select { width:100%; }
+  .row { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
+  table { width:100%; border-collapse:collapse; background:#fff; }
+  th, td { text-align:right; padding:.5rem .6rem; border-bottom:1px solid #eef0f4; vertical-align:top; }
+  th { background:#f0f3f7; font-weight:600; font-size:.88rem; position:sticky; top:0; }
+  tbody tr { cursor:pointer; } tbody tr:hover { background:var(--accent); }
+  .badge { display:inline-block; padding:.1rem .55rem; border-radius:999px; font-size:.8rem; font-weight:600; background:#eef0f4; white-space:nowrap; }
+  .st-הוגשה { background:#dbeafe; color:#1e3a8a; } .st-בטיפול { background:#fef3c7; color:#78350f; }
+  .st-אושרה { background:#dcfce7; color:#14532d; } .st-נסגרה { background:#e5e7eb; color:#374151; }
+  .st-במילוי { background:#ede9fe; color:#4c1d95; } .st-פג { background:#fee2e2; color:#7f1d1d; }
+  .ext { background:#ffedd5; color:#7c2d12; margin-inline-start:.3rem; }
+  .muted { color:var(--muted); } .small { font-size:.85rem; }
+  .err { color:var(--error); font-size:.85rem; font-weight:600; min-height:1em; }
+  .msg { padding:.6rem .8rem; border-radius:8px; margin:.6rem 0; }
+  .msg.ok { background:#edf7f0; color:#144d29; } .msg.bad { background:#fef3f2; color:#7a1a12; } .msg.warn { background:#fff4d6; color:#5c3d00; }
+  .answer { border-bottom:1px solid #eef0f4; padding:.6rem 0; }
+  .answer .q { font-weight:600; } .answer .a { white-space:pre-wrap; overflow-wrap:anywhere; margin-top:.2rem; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:1rem; } @media (max-width:900px) { .two { grid-template-columns:1fr; } }
+  .link-box { width:100%; direction:ltr; font-family:monospace; font-size:.85rem; }
+  .toast { position:fixed; bottom:1rem; left:1rem; background:#1b2330; color:#fff; padding:.75rem 1rem; border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,.2); max-width:360px; z-index:20; }
+  .toast[hidden] { display:none; }
+  .count { background:var(--error); color:#fff; border-radius:999px; padding:0 .45rem; font-size:.8rem; margin-inline-start:.3rem; }
+  .hist td { font-size:.85rem; cursor:default; } .hist tr:hover { background:none; }
+  .back { margin-bottom:.8rem; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<section id="login" hidden style="max-width:380px;margin:12vh auto;background:#fff;border:1px solid var(--border);border-radius:12px;padding:1.6rem">
+  <h1 style="font-size:1.3rem;margin:0 0 .3rem;color:var(--primary-dark)">מסך ניהול — בקשות מלגה</h1>
+  <p class="muted small" style="margin:0 0 1rem">מכללת סקילס · כניסה למורשים בלבד</p>
+  <form id="login-form" novalidate>
+    <label for="login-pw">סיסמה</label>
+    <input id="login-pw" type="password" autocomplete="current-password" style="width:100%" dir="ltr">
+    <div id="login-msg" class="err" role="alert" style="margin:.4rem 0"></div>
+    <button type="submit" style="width:100%">כניסה</button>
+  </form>
+</section>
+<header>
+  <h1>בקשות מלגה <span id="new-count" class="count" hidden></span></h1>
+  <span id="demo-flag" class="demo" hidden>מצב הדגמה — קוד אימות מוצג במסך</span>
+  <button id="btn-new" type="button">+ בקשה חדשה</button>
+  <button id="btn-pw" type="button" class="secondary">שינוי סיסמה</button>
+  <button id="btn-logout" type="button" class="secondary">יציאה</button>
+</header>
+<main>
+  <div id="global-msg" role="alert"></div>
+
+  <!-- רשימה -->
+  <section id="view-list">
+    <div class="card">
+      <div class="row">
+        <div style="flex:1;min-width:220px">
+          <label for="q">חיפוש לפי מספר בקשה, שם או טלפון</label>
+          <input id="q" type="search" style="width:100%" autocomplete="off">
+        </div>
+        <div>
+          <label for="f-status">סטטוס</label>
+          <select id="f-status"><option value="">הכול</option></select>
+        </div>
+        <button id="btn-refresh" class="secondary" type="button" style="align-self:flex-end">רענון</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:auto;max-height:640px">
+      <table aria-describedby="list-caption">
+        <caption id="list-caption" class="muted small" style="text-align:right;padding:.5rem .6rem">לחיצה על שורה פותחת את הבקשה</caption>
+        <thead><tr><th>מספר בקשה</th><th>שם הלקוח</th><th>טלפון</th><th>ת״ז</th><th>מסלול</th><th>נוצרה</th><th>הוגשה</th><th>סטטוס</th><th>זמן שנותר</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <p id="empty" class="muted" style="padding:1rem" hidden>לא נמצאו בקשות.</p>
+    </div>
+  </section>
+
+  <!-- בקשה חדשה -->
+  <section id="view-new" hidden>
+    <button class="secondary back" type="button" data-back>→ חזרה לרשימה</button>
+    <div class="card">
+      <h2>בקשה חדשה — פרטי לקוח ומסלול</h2>
+      <form id="form-new" novalidate></form>
+      <div id="new-msg"></div>
+      <div id="new-result" hidden class="card" style="background:var(--accent)">
+        <h2>הקישור האישי מוכן</h2>
+        <p>מספר בקשה: <strong id="new-reqno"></strong></p>
+        <label for="new-link">קישור אישי לשליחה בוואטסאפ או ב־SMS</label>
+        <div class="row"><input id="new-link" class="link-box" readonly><button type="button" id="btn-copy-new">העתקת קישור</button></div>
+        <p class="small muted">הקישור לא כולל פרטים אישיים. הלקוח יאמת את זהותו בקוד שיישלח לדוא״ל שלו. אם המייל לא מגיע — כדאי לבקש מהלקוח לבדוק בתיקיית הספאם.</p>
+        <button type="button" class="secondary" id="btn-open-new">פתיחת הבקשה</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- פרטי בקשה -->
+  <section id="view-detail" hidden>
+    <button class="secondary back" type="button" data-back>→ חזרה לרשימה</button>
+    <div id="detail"></div>
+  </section>
+</main>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+  // ───── עזר ─────
+  // מצב עצמאי: כל קריאה עוברת דרך adminApi עם אסימון כניסה שנבדק בשרת
+  var TOKEN_KEY = 'skills_admin_token';
+  function getToken() { try { return sessionStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return window.__tok || ''; } }
+  function setToken(t) { window.__tok = t; try { if (t) sessionStorage.setItem(TOKEN_KEY, t); else sessionStorage.removeItem(TOKEN_KEY); } catch (e) { /* */ } }
+  function raw(fn, args) {
+    return new Promise(function (resolve, reject) {
+      var r = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+      r[fn].apply(r, args);
+    });
+  }
+  function run(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return raw('adminApi', [getToken(), fn, args]).then(function (res) {
+      if (res && res.code === 'login') { setToken(''); showLogin('פג תוקף הכניסה. יש להתחבר שוב.'); throw new Error('נדרשת כניסה'); }
+      return res;
+    });
+  }
+  function showLogin(msg) {
+    document.getElementById('login').hidden = false;
+    document.querySelector('header').hidden = true;
+    document.querySelector('main').hidden = true;
+    var e = document.getElementById('login-msg'); e.textContent = msg || '';
+    document.getElementById('login-pw').focus();
+  }
+  function hideLogin() {
+    document.getElementById('login').hidden = true;
+    document.querySelector('header').hidden = false;
+    document.querySelector('main').hidden = false;
+  }
+  function h(tag, attrs) {
+    var el = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === 'class') el.className = v;
+      else if (k.indexOf('on') === 0 && typeof v === 'function') el.addEventListener(k.slice(2), v);
+      else if (v === true) el.setAttribute(k, '');
+      else el.setAttribute(k, String(v));
+    });
+    for (var i = 2; i < arguments.length; i++) append(el, arguments[i]);
+    return el;
+  }
+  function append(el, c) {
+    if (c === null || c === undefined || c === false) return;
+    if (Array.isArray(c)) { c.forEach(function (x) { append(el, x); }); return; }
+    el.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  var $ = function (id) { return document.getElementById(id); };
+  var boot = null, offset = 0, current = null, lastCheck = 0, newCount = 0;
+  function fmt(ms) { if (!ms) return '—'; var d = new Date(ms); return d.toLocaleDateString('he-IL') + ' ' + d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }); }
+  function nowS() { return Date.now() + offset; }
+  function remaining(a) {
+    if (a.submittedAt) return '—';
+    if (a.status === 'פג תוקף הקישור') return 'פג';
+    if (!a.startedAt) return 'טרם התחיל';
+    var ms = a.deadlineAt - nowS(); if (ms <= 0) return 'פג';
+    var m = Math.ceil(ms / 60000); return Math.floor(m / 60) + ':' + ('0' + (m % 60)).slice(-2) + ' ש׳';
+  }
+  function badge(s) { return h('span', { class: 'badge st-' + String(s).split(' ')[0] }, s); }
+  function showMsg(box, text, kind) { box.replaceChildren(text ? h('div', { class: 'msg ' + (kind || 'bad') }, text) : ''); }
+  function fail(e) { showMsg($('global-msg'), 'שגיאה: ' + (e && e.message ? e.message : e), 'bad'); }
+  function show(view) {
+    ['list', 'new', 'detail'].forEach(function (v) { $('view-' + v).hidden = v !== view; });
+    window.scrollTo(0, 0);
+  }
+  function copy(text, input) {
+    function fallback() { if (input) { input.focus(); input.select(); try { document.execCommand('copy'); toast('הקישור הועתק'); } catch (e) { toast('יש להעתיק ידנית (Ctrl+C)'); } } }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { toast('הקישור הועתק'); }, fallback);
+    else fallback();
+  }
+  function ask(box, text, onYes) {
+    var yes = h('button', { type: 'button', onclick: function () { box.replaceChildren(); onYes(); } }, 'אישור');
+    box.replaceChildren(h('div', { class: 'msg warn', role: 'alertdialog' }, text, ' ', yes, ' ',
+      h('button', { type: 'button', class: 'secondary', onclick: function () { box.replaceChildren(); } }, 'ביטול')));
+    yes.focus();
+  }
+  var toastTimer;
+  function toast(t) { var el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.hidden = true; }, 6000); }
+
+  // ───── רשימה ─────
+  var searchTimer;
+  function loadList() {
+    return run('adminList', { q: $('q').value, status: $('f-status').value }).then(function (res) {
+      if (!res.ok) return fail(res.error);
+      offset = res.serverNow - Date.now();
+      var tb = $('rows'); tb.replaceChildren();
+      $('empty').hidden = res.items.length > 0;
+      res.items.forEach(function (a) {
+        var tr = h('tr', { tabindex: '0', 'aria-label': 'בקשה ' + a.requestNo + ' של ' + a.fullName },
+          h('td', null, h('bdi', null, a.requestNo)), h('td', null, a.fullName), h('td', null, h('bdi', null, a.phone)),
+          h('td', null, h('bdi', null, a.idMasked)), h('td', null, a.track), h('td', null, fmt(a.createdAt)), h('td', null, fmt(a.submittedAt)),
+          h('td', null, badge(a.status), a.extensionRequested ? h('span', { class: 'badge ext' }, 'ביקש/ה הארכה') : null),
+          h('td', null, remaining(a)));
+        tr.addEventListener('click', function () { openDetail(a.requestNo); });
+        tr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(a.requestNo); } });
+        tb.appendChild(tr);
+      });
+    }).catch(fail);
+  }
+
+  // ───── טופס פרטים (חדש / עריכה) ─────
+  var FIELDS = [
+    ['fullName', 'שם מלא', 'text'], ['phone', 'טלפון נייד', 'tel'], ['email', 'כתובת דוא״ל', 'email'], ['idNumber', 'תעודת זהות', 'text'],
+    ['birthDate', 'תאריך לידה', 'date'], ['city', 'יישוב', 'text'], ['street', 'רחוב', 'text'], ['houseNo', 'מספר בית', 'text'],
+    ['apartment', 'דירה (לא חובה)', 'text'], ['track', 'מסלול הלימודים', 'select'],
+  ];
+  function detailsForm(form, prefix, values, opts) {
+    form.replaceChildren();
+    var grid = h('div', { class: 'grid' });
+    FIELDS.forEach(function (f) {
+      var id = prefix + f[0], input;
+      if (f[2] === 'select') {
+        input = h('select', { id: id, name: f[0] }, h('option', { value: '' }, 'בחירת מסלול'));
+        var names = boot.tracks.map(function (t) { return t.name; });
+        if (values && values.track && names.indexOf(values.track) < 0) names.push(values.track);
+        names.forEach(function (n) { input.appendChild(h('option', { value: n }, n)); });
+      } else {
+        input = h('input', { id: id, name: f[0], type: f[2], autocomplete: 'off', inputmode: f[0] === 'idNumber' || f[0] === 'phone' ? 'numeric' : null, dir: ['phone', 'email', 'idNumber'].indexOf(f[0]) >= 0 ? 'ltr' : null });
+      }
+      if (values && values[f[0]] !== undefined) input.value = values[f[0]];
+      var cell = h('div', null, h('label', { for: id }, f[1]), input, h('div', { class: 'err', id: id + '-err' }));
+      if (f[0] === 'idNumber' && opts && opts.masked) {
+        input.value = ''; input.placeholder = opts.masked + ' (ללא שינוי)';
+        cell.appendChild(h('button', { type: 'button', class: 'secondary', onclick: function (e) {
+          run('adminRevealId', opts.requestNo).then(function (r) { if (r.ok) { input.value = r.idNumber; input.placeholder = ''; e.target.remove(); } });
+        } }, 'הצגת ת״ז מלאה'));
+      }
+      grid.appendChild(cell);
+    });
+    form.appendChild(grid);
+    return function read() {
+      var o = {}; FIELDS.forEach(function (f) { o[f[0]] = form.querySelector('[name="' + f[0] + '"]').value; }); return o;
+    };
+  }
+  function fieldErrors(prefix, errors) {
+    FIELDS.forEach(function (f) { var el = $(prefix + f[0] + '-err'); if (el) el.textContent = (errors && errors[f[0]]) || ''; });
+  }
+
+  function openNew() {
+    show('new'); $('new-result').hidden = true; showMsg($('new-msg'), '');
+    var form = $('form-new');
+    var read = detailsForm(form, 'n-', {});
+    var submitBtn = h('button', { type: 'submit' }, 'יצירת בקשה ושליחה ללקוח');
+    var sendChk = h('input', { type: 'checkbox', id: 'n-send', checked: true });
+    form.appendChild(h('label', { for: 'n-send', style: 'display:flex;gap:.5rem;align-items:center;margin-top:1rem;color:var(--text);font-size:.95rem' }, sendChk, 'לשלוח ללקוח את הקישור האישי במייל עכשיו'));
+    form.appendChild(h('div', { class: 'row', style: 'margin-top:.6rem' }, submitBtn));
+    form.onsubmit = function (e) {
+      e.preventDefault(); create(false);
+    };
+    function create(override) {
+      submitBtn.disabled = true; fieldErrors('n-', {}); showMsg($('new-msg'), '');
+      run('adminCreate', read(), override, sendChk.checked).then(function (res) {
+        submitBtn.disabled = false;
+        if (!res.ok) {
+          if (res.extra && res.extra.errors) fieldErrors('n-', res.extra.errors);
+          if (res.code === 'locked_year') {
+            $('new-msg').replaceChildren(h('div', { class: 'msg warn' }, res.error, ' ',
+              h('button', { type: 'button', class: 'secondary', onclick: function () { create(true); } }, 'יצירה בכל זאת (תירשם בהיסטוריה)')));
+          } else showMsg($('new-msg'), res.error);
+          return;
+        }
+        $('new-reqno').textContent = res.requestNo; $('new-link').value = res.link; $('new-result').hidden = false;
+        if (res.emailSent) showMsg($('new-msg'), 'הקישור נשלח במייל אל ' + res.email + '. אפשר גם להעתיק ולשלוח בוואטסאפ.', 'ok');
+        else if (res.emailError) showMsg($('new-msg'), res.emailError + ' — אפשר להעתיק את הקישור ולשלוח ידנית.', 'warn');
+        $('btn-copy-new').onclick = function () { copy(res.link, $('new-link')); };
+        $('btn-open-new').onclick = function () { openDetail(res.requestNo); };
+        form.querySelectorAll('input,select').forEach(function (i) { i.disabled = true; }); submitBtn.hidden = true;
+        $('new-link').focus(); $('new-link').select();
+      }).catch(function (e) { submitBtn.disabled = false; fail(e); });
+    }
+  }
+
+  // ───── פרטי בקשה ─────
+  function openDetail(requestNo) {
+    show('detail');
+    $('detail').replaceChildren(h('p', { class: 'muted' }, 'טוען…'));
+    return run('adminGet', requestNo).then(function (res) {
+      if (!res.ok) { $('detail').replaceChildren(h('div', { class: 'msg bad' }, res.error)); return; }
+      offset = res.serverNow - Date.now(); current = res; renderDetail(res);
+    }).catch(fail);
+  }
+  function reload() { return openDetail(current.app.requestNo); }
+  function act(box, promise, okText) {
+    return promise.then(function (r) { if (!r.ok) { showMsg(box, r.error); return r; } if (okText) toast(okText); reload(); return r; }).catch(fail);
+  }
+
+  function renderDetail(res) {
+    var a = res.app, root = $('detail'); root.replaceChildren();
+    var top = h('div', { class: 'card' },
+      h('div', { class: 'row' }, h('h2', { style: 'margin:0' }, a.fullName + ' · ', h('bdi', null, a.requestNo)), badge(a.status),
+        a.extensionRequested ? h('span', { class: 'badge ext' }, 'ביקש/ה הארכה') : null),
+      h('p', { class: 'small muted' }, 'נוצרה: ' + fmt(a.createdAt) + ' · התחלת מילוי: ' + fmt(a.startedAt) + ' · תוקף עד: ' + fmt(a.deadlineAt) + ' · הוגשה: ' + fmt(a.submittedAt) + ' · זמן שנותר: ' + remaining(a)));
+    root.appendChild(top);
+
+    // קישור
+    var linkMsg = h('div');
+    var linkInput = h('input', { class: 'link-box', readonly: true, value: a.link || '', 'aria-label': 'קישור אישי' });
+    var hours = h('select', { 'aria-label': 'משך ההארכה' }, [24, 48, 72, 168].map(function (x) { return h('option', { value: x }, '+' + x + ' שעות'); }));
+    var linkCard = h('div', { class: 'card' }, h('h2', null, 'קישור אישי'));
+    if (a.submittedAt) linkCard.appendChild(h('p', { class: 'muted' }, 'הבקשה הוגשה והטופס נעול לעריכת הלקוח.'));
+    else {
+      linkCard.appendChild(h('div', { class: 'row' }, linkInput, h('button', { type: 'button', onclick: function () { copy(a.link, linkInput); } }, 'העתקת קישור')));
+      linkCard.appendChild(h('div', { class: 'row', style: 'margin-top:.6rem' },
+        hours, h('button', { type: 'button', class: 'secondary', disabled: a.revoked, onclick: function () { act(linkMsg, run('adminExtend', a.requestNo, Number(hours.value)), 'הזמן הוארך'); } }, 'הארכת זמן'),
+        h('button', { type: 'button', class: 'secondary', disabled: a.revoked, onclick: function () { act(linkMsg, run('adminResendLink', a.requestNo), 'הקישור נשלח שוב במייל אל ' + a.email); } }, 'שליחה חוזרת במייל'),
+        h('button', { type: 'button', class: 'secondary', onclick: function () { ask(linkMsg, 'לחדש קישור? הקישור הקודם יבוטל, התשובות שנשמרו יישארו, והקישור החדש יישלח ללקוח במייל.', function () { act(linkMsg, run('adminRenew', a.requestNo, true), 'נוצר קישור חדש ונשלח במייל אל ' + a.email); }); } }, 'חידוש קישור'),
+        h('button', { type: 'button', class: 'danger', disabled: a.revoked, onclick: function () { ask(linkMsg, 'לבטל את הקישור? הלקוח לא יוכל להמשיך למלא.', function () { act(linkMsg, run('adminRevoke', a.requestNo), 'הקישור בוטל'); }); } }, a.revoked ? 'הקישור בוטל' : 'ביטול קישור')));
+    }
+    linkCard.appendChild(linkMsg);
+    root.appendChild(linkCard);
+
+    var two = h('div', { class: 'two' });
+    var colA = h('div'), colB = h('div');
+    two.appendChild(colA); two.appendChild(colB); root.appendChild(two);
+
+    // תשובות
+    var ans = h('div', { class: 'card' }, h('h2', null, 'תשובות הלקוח' + (a.answersAreDraft ? ' — טיוטה, טרם הוגשה' : '')));
+    if (!a.answers.length) ans.appendChild(h('p', { class: 'muted' }, 'הלקוח עדיין לא מילא תשובות.'));
+    a.answers.forEach(function (x) { ans.appendChild(h('div', { class: 'answer' }, h('div', { class: 'q' }, x.num + '. ' + x.label), h('div', { class: 'a' }, x.answer || '—'))); });
+    if (a.confirmations) ans.appendChild(h('p', { class: 'small muted' }, 'אישורים: ' + a.confirmations));
+    colA.appendChild(ans);
+
+    // פרטים אישיים
+    var detMsg = h('div');
+    var detForm = h('form', { novalidate: true });
+    var readDet = detailsForm(detForm, 'd-', a, { masked: a.idMasked, requestNo: a.requestNo });
+    detForm.appendChild(h('div', { class: 'row', style: 'margin-top:.8rem' }, h('button', { type: 'submit' }, 'שמירת תיקון פרטים')));
+    detForm.onsubmit = function (e) {
+      e.preventDefault(); fieldErrors('d-', {});
+      run('adminUpdateDetails', a.requestNo, readDet()).then(function (r) {
+        if (!r.ok) { if (r.extra && r.extra.errors) fieldErrors('d-', r.extra.errors); showMsg(detMsg, r.error); return; }
+        toast(r.changed ? 'הפרטים עודכנו. התשובות לא נמחקו.' : 'לא בוצע שינוי'); reload();
+      }).catch(fail);
+    };
+    colA.appendChild(h('div', { class: 'card' }, h('h2', null, 'פרטים אישיים'), h('p', { class: 'small muted' }, 'תיקון פרטים אינו מוחק תשובות שהלקוח מילא.'), detForm, detMsg));
+
+    // מחיר והטבה
+    var finMsg = h('div');
+    var price = h('input', { id: 'f-price', inputmode: 'decimal', value: a.coursePrice === null ? '' : a.coursePrice });
+    var benefit = h('input', { id: 'f-benefit', inputmode: 'decimal', value: a.benefit === null ? '' : a.benefit });
+    var after = h('strong', null, a.priceAfter === null ? '—' : '₪' + Number(a.priceAfter).toLocaleString('he-IL'));
+    function calc() { var p = parseFloat(price.value), b = parseFloat(benefit.value); after.textContent = isFinite(p) && isFinite(b) ? '₪' + (p - b).toLocaleString('he-IL') : '—'; }
+    price.addEventListener('input', calc); benefit.addEventListener('input', calc);
+    colB.appendChild(h('div', { class: 'card' }, h('h2', null, 'מחיר והטבה — לשימוש פנימי'),
+      h('div', { class: 'grid' }, h('div', null, h('label', { for: 'f-price' }, 'מחיר המסלול (₪)'), price), h('div', null, h('label', { for: 'f-benefit' }, 'סכום ההטבה (₪)'), benefit)),
+      h('p', null, 'מחיר לאחר הטבה: ', after),
+      h('button', { type: 'button', onclick: function () { act(finMsg, run('adminSaveFinance', a.requestNo, price.value, benefit.value), 'המחיר נשמר'); } }, 'שמירה'), finMsg));
+
+    // החלטה
+    var decMsg = h('div');
+    var st = h('select', { id: 'd-status' }, boot.adminStatuses.map(function (s) { return h('option', { value: s }, s); }));
+    st.value = boot.adminStatuses.indexOf(a.status) >= 0 ? a.status : boot.adminStatuses[0];
+    var decAt = h('input', { id: 'd-at', type: 'date', value: a.decisionAt || '' });
+    var decText = h('textarea', { id: 'd-text' }); decText.value = a.decision || '';
+    var decCard = h('div', { class: 'card' }, h('h2', null, 'תיעוד החלטה'),
+      a.submittedAt ? null : h('p', { class: 'msg warn' }, 'ניתן לתעד החלטה רק לאחר שהלקוח הגיש את הבקשה.'),
+      h('div', { class: 'grid' }, h('div', null, h('label', { for: 'd-status' }, 'סטטוס'), st), h('div', null, h('label', { for: 'd-at' }, 'מועד ההחלטה'), decAt)),
+      h('label', { for: 'd-text', style: 'margin-top:.6rem' }, 'החלטה והסבר (התשובה נמסרת ללקוח בטלפון)'), decText,
+      h('button', { type: 'button', disabled: !a.submittedAt, style: 'margin-top:.6rem', onclick: function () { act(decMsg, run('adminSaveDecision', a.requestNo, st.value, decText.value, decAt.value), 'ההחלטה נשמרה'); } }, 'שמירת החלטה'), decMsg);
+    colB.appendChild(decCard);
+
+    // מימוש
+    var realMsg = h('div');
+    var realChk = h('input', { type: 'checkbox', id: 'r-chk' }); realChk.checked = a.realized;
+    var realAt = h('input', { type: 'date', id: 'r-at', value: a.realizedAt || '' });
+    colB.appendChild(h('div', { class: 'card' }, h('h2', null, 'מימוש ההטבה'),
+      h('label', { for: 'r-chk', style: 'display:flex;gap:.5rem;align-items:center;color:var(--text);font-size:1rem' }, realChk, 'מומש — שולם במלואו המחיר המוסכם לאחר ההטבה'),
+      h('div', { style: 'margin:.5rem 0' }, h('label', { for: 'r-at' }, 'תאריך התשלום המלא'), realAt),
+      h('p', { class: 'small muted' }, 'אין לאסוף או לשמור פרטי כרטיס אשראי במערכת.'),
+      h('button', { type: 'button', onclick: function () { act(realMsg, run('adminSaveRealized', a.requestNo, realChk.checked, realAt.value), 'נשמר'); } }, 'שמירה'), realMsg));
+
+    // הערות
+    var noteMsg = h('div'); var noteText = h('textarea', { id: 'n-text', 'aria-label': 'הערה פנימית חדשה' });
+    var notes = h('div', { class: 'card' }, h('h2', null, 'הערות פנימיות'), noteText,
+      h('button', { type: 'button', style: 'margin-top:.5rem', onclick: function () { act(noteMsg, run('adminAddNote', a.requestNo, noteText.value), 'ההערה נוספה'); } }, 'הוספת הערה'), noteMsg);
+    res.notes.forEach(function (n) { notes.appendChild(h('div', { class: 'answer' }, h('div', { class: 'small muted' }, fmt(n.at) + ' · ' + n.by), h('div', { class: 'a' }, n.text))); });
+    colB.appendChild(notes);
+
+    // היסטוריה
+    var hist = h('table', { class: 'hist' }, h('thead', null, h('tr', null, h('th', null, 'זמן'), h('th', null, 'מבצע'), h('th', null, 'פעולה'), h('th', null, 'פרטים'))));
+    var hb = h('tbody'); res.history.forEach(function (x) { hb.appendChild(h('tr', null, h('td', null, fmt(x.at)), h('td', null, x.by), h('td', null, x.action), h('td', null, x.details))); });
+    hist.appendChild(hb);
+    root.appendChild(h('div', { class: 'card' }, h('h2', null, 'היסטוריית שינויים'), hist));
+
+    // מחיקה
+    var delMsg = h('div'); var delInput = h('input', { id: 'del-confirm', dir: 'ltr', placeholder: a.requestNo });
+    root.appendChild(h('div', { class: 'card' }, h('h2', null, 'מחיקת הבקשה'),
+      h('p', { class: 'small muted' }, 'מחיקה סופית של כל המידע האישי והתשובות. בהיסטוריה יישאר רק מספר הבקשה.'),
+      h('div', { class: 'row' }, h('label', { for: 'del-confirm', style: 'margin:0' }, 'להקליד את מספר הבקשה לאישור:'), delInput,
+        h('button', { type: 'button', class: 'danger', onclick: function () {
+          run('adminDelete', a.requestNo, delInput.value).then(function (r) { if (!r.ok) return showMsg(delMsg, r.error); toast('הבקשה נמחקה'); show('list'); loadList(); }).catch(fail);
+        } }, 'מחיקה')), delMsg));
+  }
+
+  // ───── התראות שקטות על בקשות חדשות ─────
+  function poll() {
+    run('adminChanges', lastCheck).then(function (r) {
+      if (!r.ok) return;
+      if (lastCheck) {
+        r.submitted.forEach(function (x) { newCount++; toast('התקבלה בקשה חדשה: ' + x.requestNo + ' · ' + x.fullName); });
+        r.extensions.forEach(function (x) { toast('בקשת הארכת זמן: ' + x.requestNo + ' · ' + x.fullName); });
+        if (newCount) { $('new-count').textContent = newCount; $('new-count').hidden = false; }
+        if ((r.submitted.length || r.extensions.length) && !$('view-list').hidden) loadList();
+      }
+      lastCheck = r.serverNow;
+    }).catch(function () { /* ננסה שוב בסבב הבא */ });
+  }
+
+  // ───── אתחול ─────
+  var started = false;
+  document.getElementById('login-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var pw = document.getElementById('login-pw').value;
+    var btn = e.target.querySelector('button'); btn.disabled = true;
+    document.getElementById('login-msg').textContent = '';
+    raw('adminLogin', [pw]).then(function (r) {
+      btn.disabled = false;
+      if (!r.ok) { document.getElementById('login-msg').textContent = r.error; return; }
+      setToken(r.token); document.getElementById('login-pw').value = ''; hideLogin(); start();
+    }).catch(function (err) { btn.disabled = false; document.getElementById('login-msg').textContent = 'שגיאה: ' + err.message; });
+  });
+  $('btn-logout').addEventListener('click', function () { raw('adminLogout', [getToken()]); setToken(''); showLogin('יצאת מהמערכת.'); });
+  $('btn-pw').addEventListener('click', function () {
+    var cur = prompt('סיסמה נוכחית:'); if (!cur) return;
+    var nw = prompt('סיסמה חדשה (לפחות 10 תווים):'); if (!nw) return;
+    run('adminChangePassword', cur, nw).then(function (r) { toast(r.ok ? 'הסיסמה עודכנה' : r.error); }).catch(fail);
+  });
+  if (getToken()) start(); else showLogin('');
+
+  function start() {
+  if (started) { loadList(); return; }
+  run('adminBootstrap').then(function (b) {
+    if (!b.ok) return fail(b.error);
+    boot = b; offset = b.serverNow - Date.now();
+    $('demo-flag').hidden = !b.demo;
+    var sel = $('f-status');
+    Object.keys(b.statuses).forEach(function (k) { sel.appendChild(h('option', { value: b.statuses[k] }, b.statuses[k])); });
+    if (!b.formBaseUrl) showMsg($('global-msg'), 'חסרה הגדרת FORM_BASE_URL — כתובת הטופס ב־GitHub Pages. ראו מדריך ההתקנה, שלב 5.', 'warn');
+    $('q').addEventListener('input', function () { clearTimeout(searchTimer); searchTimer = setTimeout(loadList, 300); });
+    sel.addEventListener('change', loadList);
+    $('btn-refresh').addEventListener('click', loadList);
+    $('btn-new').addEventListener('click', openNew);
+    document.querySelectorAll('[data-back]').forEach(function (b2) { b2.addEventListener('click', function () { show('list'); loadList(); }); });
+    $('new-count').addEventListener('click', function () { newCount = 0; $('new-count').hidden = true; });
+    started = true;
+    loadList(); poll(); setInterval(poll, 20000);
+  }).catch(function (e) { if (e && e.message !== 'נדרשת כניסה') fail(e); });
+  }
+})();
+</script>
+</body>
+</html>
