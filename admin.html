@@ -383,7 +383,7 @@
     // בקשת הארכת זמן מהלקוח — אישור בלחיצה, והלקוח מקבל מייל שהבקשה אושרה
     if (a.extensionRequested && !a.submittedAt) {
       var extMsg = h('div');
-      var extHours = h('select', { 'aria-label': 'משך ההארכה' }, [24, 48, 72, 168].map(function (x) { return h('option', { value: x }, '+' + x + ' שעות'); }));
+      var extHours = h('select', { 'aria-label': 'משך ההארכה' }, [[15, '+15 דקות'], [30, '+30 דקות'], [60, '+שעה'], [1440, '+24 שעות']].map(function (x) { return h('option', { value: x[0] }, x[1]); }));
       root.appendChild(h('div', { class: 'card ext-card' },
         h('h2', null, 'הלקוח ביקש הארכת זמן'),
         h('p', { class: 'small' }, 'באישור ההארכה הלקוח יקבל מייל שהבקשה אושרה, עם המועד החדש למילוי.'),
@@ -401,7 +401,7 @@
     // קישור
     var linkMsg = h('div');
     var linkInput = h('input', { class: 'link-box', readonly: true, value: a.link || '', 'aria-label': 'קישור אישי' });
-    var hours = h('select', { 'aria-label': 'משך ההארכה' }, [24, 48, 72, 168].map(function (x) { return h('option', { value: x }, '+' + x + ' שעות'); }));
+    var hours = h('select', { 'aria-label': 'משך ההארכה' }, [[15, '+15 דקות'], [30, '+30 דקות'], [60, '+שעה'], [1440, '+24 שעות']].map(function (x) { return h('option', { value: x[0] }, x[1]); }));
     var linkCard = h('div', { class: 'card' }, h('h2', null, 'קישור אישי'));
     if (a.submittedAt) linkCard.appendChild(h('p', { class: 'muted' }, 'הבקשה הוגשה והטופס נעול לעריכת הלקוח.'));
     else {

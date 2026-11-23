@@ -1,4 +1,4 @@
-/* טופס הלקוח: אימות במייל → הסבר → מילוי (24 שעות) → הגשה. כל הכללים נאכפים גם בשרת. */
+/* טופס הלקוח: אימות במייל → הסבר → מילוי (זמן מוגבל) → הגשה. כל הכללים נאכפים גם בשרת. */
 (function () {
   'use strict';
   const { h, C } = window.Skills;
@@ -170,7 +170,7 @@
     show(h('section', { class: 'card', 'aria-labelledby': 'intro-title' },
       h('h1', { id: 'intro-title' }, TITLE), h('p', { class: 'lead' }, OPENING),
       h('div', { class: 'info-box' },
-        h('p', null, h('strong', null, 'הקישור למילוי הטופס פעיל למשך ' + me.fillHours + ' שעות מתחילת המילוי.')),
+        h('p', null, h('strong', null, 'אחרי שמתחילים למלא, יש ' + (me.fillLabel || '15 דקות') + ' להשלים את הטופס. כדאי להתחיל רק כשיש לך זמן פנוי.')),
         h('p', null, 'הטופס כולל שלושה חלקים: פרטים אישיים, רקע ובקשת סיוע, ומטרות ומוכנות. המילוי נשמר אוטומטית, ואפשר לחזור אליו מאותו קישור עד לשליחה.')),
       err, btn));
   }
@@ -206,7 +206,7 @@
     const tick = () => {
       const left = me.deadlineAt - (Date.now() + clockOffset);
       value.textContent = fmtRemaining(left);
-      [60, 15, 5].forEach((m) => { if (left <= m * 60000 && left > 0 && !announced[m]) { announced[m] = 1; announcer.textContent = 'נותרו ' + m + ' דקות למילוי הטופס.'; } });
+      [5, 1].forEach((m) => { if (left <= m * 60000 && left > 0 && !announced[m]) { announced[m] = 1; announcer.textContent = m === 1 ? 'נותרה דקה אחת למילוי הטופס.' : 'נותרו ' + m + ' דקות למילוי הטופס.'; } });
       if (left <= 0) { stopTimer(); onExpire(); }
     };
     tick();
